@@ -69,3 +69,40 @@ describe("item repository", () => {
     expect((await g.read(TAB))[3][1]).toBe("LAB-03");
   });
 });
+
+describe("sheet safety", () => {
+  it("writes user text as raw text, never as formulas", async () => {
+    const calls: unknown[] = [];
+    const orig = g.update.bind(g);
+    g.update = async (tab, row, values, opts) => { calls.push({ values, opts }); return orig(tab, row, values, opts); };
+    await createItem(g, { ...input, name: "=IMPORTXML(1)" });
+    const itemWrite = calls[0] as { opts?: { formulas?: boolean } };
+    expect(itemWrite.opts?.formulas).toBeFalsy();
+  });
+
+  it("writes only the total cell, leaving the rest of the total row alone", async () => {
+    const rows = structuredClone(STOCK_ROWS);
+    rows[rows.length - 1][0] = "รวม";
+    g = new FakeSheetGateway({ [TAB]: rows });
+    await createItem(g, input);
+    const all = await g.read(TAB);
+    expect(all[all.length - 1][0]).toBe("รวม");
+    expect(all[all.length - 1][8]).toMatch(/^=SUM/);
+  });
+
+  it("treats only the first codeless row after the items as the total row", async () => {
+    const rows = [...structuredClone(STOCK_ROWS), ["ลงชื่อ ผู้ตรวจ 2"]];
+    g = new FakeSheetGateway({ [TAB]: rows });
+    await createItem(g, input);
+    const all = await g.read(TAB);
+    expect(all[all.length - 1]).toEqual(["ลงชื่อ ผู้ตรวจ 2"]);
+    expect(all[all.length - 3][1]).toBe("LAB-12");
+  });
+
+  it("does not overwrite cells beyond the managed columns", async () => {
+    const rows = structuredClone(STOCK_ROWS).map((r, i) => (i === 4 ? [...r, "keep"] : r));
+    g = new FakeSheetGateway({ [TAB]: rows });
+    await updateItem(g, "LAB-04", input);
+    expect((await g.read(TAB))[4][13]).toBe("keep");
+  });
+});

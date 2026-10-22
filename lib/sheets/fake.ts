@@ -1,4 +1,4 @@
-import type { SheetGateway } from "./gateway";
+import type { SheetGateway, WriteOptions } from "./gateway";
 
 /** In-memory gateway for tests and `SHEETS_FAKE=1` local runs. */
 export class FakeSheetGateway implements SheetGateway {
@@ -18,8 +18,13 @@ export class FakeSheetGateway implements SheetGateway {
     return structuredClone(this.tab(tab));
   }
 
-  async update(tab: string, row: number, values: (string | number)[]) {
-    this.tab(tab)[row - 1] = values.map(String);
+  async update(tab: string, row: number, values: (string | number)[], opts: WriteOptions = {}) {
+    const t = this.tab(tab);
+    const r = [...(t[row - 1] ?? [])];
+    const start = opts.startCol ?? 0;
+    while (r.length < start) r.push("");
+    values.forEach((v, i) => (r[start + i] = String(v)));
+    t[row - 1] = r;
   }
 
   async insertRowBefore(tab: string, row: number) {

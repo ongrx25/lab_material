@@ -22,10 +22,8 @@ export async function verifyLogin(g: SheetGateway, username: string, password: s
   if (!ok) return null;
 
   if (!isHash) {
-    const upgraded = [...row];
-    upgraded[c.password] = await bcrypt.hash(password, 10);
     try {
-      await g.update(TABS.users, idx + 1, upgraded);
+      await g.update(TABS.users, idx + 1, [await bcrypt.hash(password, 10)], { startCol: c.password });
     } catch (e) {
       console.error("password hash upgrade failed", e);
     }

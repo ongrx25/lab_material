@@ -1,5 +1,5 @@
 import { google, type sheets_v4 } from "googleapis";
-import { SheetAccessError, type SheetGateway } from "./gateway";
+import { colLetter, SheetAccessError, type SheetGateway, type WriteOptions } from "./gateway";
 
 /** Google Sheets via a service account (ADR 0002). Server-only. */
 export class GoogleSheetGateway implements SheetGateway {
@@ -45,12 +45,13 @@ export class GoogleSheetGateway implements SheetGateway {
     return (res.data.values ?? []).map((r) => r.map((c) => String(c ?? "")));
   }
 
-  async update(tab: string, row: number, values: (string | number)[]) {
+  async update(tab: string, row: number, values: (string | number)[], opts: WriteOptions = {}) {
     await this.call(() =>
       this.api.spreadsheets.values.update({
         spreadsheetId: this.spreadsheetId,
-        range: `'${tab}'!A${row}`,
-        valueInputOption: "USER_ENTERED",
+        range: `'${tab}'!${colLetter(opts.startCol ?? 0)}${row}`,
+        // RAW keeps typed text (names, lots, BE dates) exactly as entered; only our own SUM uses formulas.
+        valueInputOption: opts.formulas ? "USER_ENTERED" : "RAW",
         requestBody: { values: [values] },
       }),
     );

@@ -1,4 +1,4 @@
-import { TABS, type SheetGateway } from "@/lib/sheets/gateway";
+import { colLetter, TABS, type SheetGateway } from "@/lib/sheets/gateway";
 import { computeItem, headerIndex, itemToRow, rowToItem, type ColumnMap, type Item, type ItemFormValues } from "./item";
 
 export class ItemNotFoundError extends Error {
@@ -21,20 +21,29 @@ type Sheet = {
 async function load(g: SheetGateway): Promise<Sheet> {
   const rows = await g.read(TABS.stock);
   const cols = headerIndex(rows[0] ?? []);
-  const width = Math.max(rows[0]?.length ?? 0, ...Object.values(cols).map((c) => c + 1));
+  // Only the span of managed columns is ever written, so cells beyond it are never touched.
+  const width = Math.max(...Object.values(cols).map((c) => c + 1));
   const rowOf = new Map<string, number>();
   const items: Item[] = [];
   let totalRow: number | null = null;
+  let lastItemRow = 1;
   rows.forEach((row, i) => {
     if (i === 0) return;
     const code = (row[cols.code] ?? "").trim();
     if (code) {
       rowOf.set(code, i + 1);
       items.push(rowToItem(row, cols));
-    } else if (row.some((c) => (c ?? "").trim() !== "")) {
-      totalRow = i + 1;
+      lastItemRow = i + 1;
     }
   });
+  // The total row is the first non-empty row without a code right after the item block.
+  for (let i = lastItemRow; i < rows.length; i++) {
+    if ((rows[i][cols.code] ?? "").trim()) break;
+    if (rows[i].some((c) => (c ?? "").trim() !== "")) {
+      totalRow = i + 1;
+      break;
+    }
+  }
   return { rows, cols, width, rowOf, items, totalRow };
 }
 
@@ -47,22 +56,14 @@ function nextCode(items: Item[]): string {
   return `LAB-${String(max + 1).padStart(2, "0")}`;
 }
 
-const colLetter = (i: number): string => (i >= 26 ? colLetter(Math.floor(i / 26) - 1) : "") + String.fromCharCode(65 + (i % 26));
-
-/**
- * Points the total row at all item rows with a SUM formula, so it stays right after inserts/deletes
- * made by the app or by hand. The formula goes where the sheet already shows the total.
- */
 async function writeTotal(g: SheetGateway) {
   const s = await load(g);
   if (s.totalRow === null) return;
-  const row = [...(s.rows[s.totalRow - 1] ?? [])];
-  while (row.length < s.width) row.push("");
-  const existing = row.findIndex((c) => /\d/.test(c ?? ""));
+  const row = s.rows[s.totalRow - 1] ?? [];
+  const existing = row.findIndex((c, i) => i !== s.cols.no && /^(=SUM\(.*|[\d,.\s]*\d[\d,.\s]*)$/.test((c ?? "").trim()));
   const target = existing >= 0 ? existing : s.cols.value;
   const col = colLetter(s.cols.value);
-  row[target] = `=SUM(${col}2:${col}${s.totalRow - 1})`;
-  await g.update(TABS.stock, s.totalRow, row);
+  await g.update(TABS.stock, s.totalRow, [`=SUM(${col}2:${col}${s.totalRow - 1})`], { startCol: target, formulas: true });
 }
 
 export async function createItem(g: SheetGateway, input: ItemFormValues): Promise<Item> {

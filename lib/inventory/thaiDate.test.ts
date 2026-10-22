@@ -18,3 +18,7 @@ describe("thaiDate", () => {
     expect(daysBetween(new Date(2026, 9, 22), new Date(2027, 3, 20))).toBe(180);
   });
 });
+
+describe("two-digit years", () => {
+  it("reads yy < 60 as Gregorian 20yy", () => expect(ymd(parseThaiDate("1/12/26"))).toEqual([2026, 12, 1]));
+});
