@@ -9,7 +9,7 @@ export function LoginForm() {
     <form action={action} className="flex flex-col gap-4">
       <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
         ชื่อผู้ใช้
-        <input name="username" autoComplete="username" required autoFocus
+        <input name="username" autoComplete="username" required autoFocus defaultValue={state.username} key={state.username}
           className="h-12 rounded-xl border border-slate-200 bg-white px-4 text-base outline-none focus:border-primary focus:ring-4 focus:ring-blue-100" />
       </label>
       <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">

@@ -8,7 +8,7 @@ import { IconLogout } from "@/components/icons";
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await getSession();
   if (!user) redirect("/login");
-  const initial = (user.name || user.username).trim().charAt(0).toUpperCase();
+  const initial = user.username.trim().charAt(0).toUpperCase();
 
   return (
     <div className="flex min-h-screen">
