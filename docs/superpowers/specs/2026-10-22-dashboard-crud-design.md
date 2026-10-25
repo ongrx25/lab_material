@@ -45,7 +45,7 @@ Google Sheet `1KkhbX34xQJ_BMxGPjCZNc3tpB8HfdcgKObrQRoa_WRM`
 
 ## สถาปัตยกรรม
 
-Next.js (App Router, TypeScript) + Tailwind CSS deploy บน Vercel ทุกการอ่านเขียนชีตทำฝั่งเซิร์ฟเวอร์ (Server Actions / Route Handlers) ผ่าน Google Sheets API ด้วย Service Account (ADR 0002) เบราว์เซอร์ไม่เห็นกุญแจหรือข้อมูลรหัสผ่าน
+**อัปเดต 25 ต.ค. 2569:** เปลี่ยนไปรันบน Google Apps Script (ADR 0002) — ส่วนสถาปัตยกรรมด้านล่างเป็นแบบเดิม
 
 ```
 app/

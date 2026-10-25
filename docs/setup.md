@@ -1,28 +1,31 @@
-# คู่มือตั้งค่าและ deploy
+# ติดตั้งบน Google Apps Script
 
-ใช้เวลาประมาณ 15 นาที ทำครั้งเดียว
+ใช้เวลาประมาณ 5 นาที ทำครั้งเดียว
 
-## 1. สร้าง Service Account (บัญชีบอทสำหรับแก้ชีต)
-1. เข้า https://console.cloud.google.com แล้วสร้างโปรเจกต์ใหม่ เช่น `lab-stock`
-2. ไปที่เมนู **APIs & Services → Library** ค้นหา **Google Sheets API** แล้วกด **Enable**
-3. ไปที่ **IAM & Admin → Service Accounts → Create service account** ตั้งชื่อ `lab-stock-bot` แล้วกด Done (ไม่ต้องกำหนด role)
-4. คลิกบัญชีที่สร้าง → แท็บ **Keys → Add key → Create new key → JSON** จะได้ไฟล์ .json ให้เก็บไว้เป็นความลับ
+## 1. สร้างสคริปต์ผูกกับชีต
+1. เปิด Google Sheet วัสดุ แล้วไปที่เมนู **ส่วนขยาย → Apps Script**
+2. ในไฟล์ `Code.gs` ลบโค้ดเดิมทั้งหมด แล้ววางเนื้อหาจาก [`apps-script/Code.gs`](../apps-script/Code.gs)
+3. กด **+** ข้าง "ไฟล์" → **HTML** ตั้งชื่อ `Index` (ไม่ต้องใส่ .html) แล้ววางเนื้อหาจาก [`apps-script/Index.html`](../apps-script/Index.html)
+4. กด 💾 บันทึก
 
-## 2. แชร์ชีตให้บอท
-1. เปิด Google Sheet แล้วกด **แชร์**
-2. ใส่อีเมลของบอท (`client_email` ในไฟล์ JSON ลงท้ายด้วย `iam.gserviceaccount.com`) และให้สิทธิ์ **ผู้แก้ไข**
-3. ในหัวข้อ "การเข้าถึงทั่วไป" ตั้งเป็น **จำกัด** เพื่อไม่ให้คนนอกเห็นรหัสผ่านในแท็บ User
+## 2. Deploy เป็นเว็บแอป
+1. กด **การทำให้ใช้งานได้ (Deploy) → การทำให้ใช้งานได้รายการใหม่**
+2. เลือกประเภท ⚙️ → **เว็บแอป**
+3. ตั้งค่า
+   - **ดำเนินการในฐานะ:** ฉัน (บัญชีเจ้าของชีต)
+   - **ผู้ที่มีสิทธิ์เข้าถึง:** ทุกคน (ระบบมีหน้าล็อกอินของตัวเองอยู่แล้ว)
+4. กด **ทำให้ใช้งานได้** แล้วกด **ให้สิทธิ์เข้าถึง** (ครั้งแรก Google จะเตือน "แอปยังไม่ได้รับการยืนยัน" ให้กด ขั้นสูง → ไปที่โปรเจกต์)
+5. คัดลอก **URL ของเว็บแอป** ไปเปิดบนคอมหรือมือถือ (บนมือถือกด "เพิ่มไปยังหน้าจอหลัก" ได้)
 
-## 3. Deploy บน Vercel
-1. สมัคร https://vercel.com ด้วยบัญชี GitHub แล้ว **Add New → Project** เลือก repo `lab_material`
-2. ใน **Environment Variables** ใส่ค่า
-   - `GOOGLE_SHEET_ID` = `1KkhbX34xQJ_BMxGPjCZNc3tpB8HfdcgKObrQRoa_WRM`
-   - `GOOGLE_SERVICE_ACCOUNT_EMAIL` = ค่า `client_email` จากไฟล์ JSON
-   - `GOOGLE_PRIVATE_KEY` = ค่า `private_key` จากไฟล์ JSON (คัดลอกทั้งก้อน รวม `-----BEGIN PRIVATE KEY-----`)
-   - `SESSION_SECRET` = ข้อความสุ่มยาว 32 ตัวขึ้นไป
-3. กด **Deploy** แล้วเปิดลิงก์ที่ได้ ล็อกอินด้วย username/password ในแท็บ User
+## 3. ความปลอดภัย
+- ตั้งการแชร์ชีตเป็น **จำกัด** (ไม่ต้องเปิดลิงก์สาธารณะ) เพราะสคริปต์ใช้สิทธิ์ของเจ้าของ
+- รหัสผ่านในแท็บ User จะถูกเปลี่ยนเป็นแบบเข้ารหัสเมื่อผู้ใช้ล็อกอินครั้งแรก หรือรันฟังก์ชัน `hashAllPlainPasswords` ในหน้า Apps Script เพื่อเข้ารหัสทุกคนทันที
+- เพิ่มผู้ใช้: พิมพ์แถวใหม่ในแท็บ User (username, password, name, position)
+
+## เมื่อแก้โค้ด
+แก้ใน Apps Script แล้ว **Deploy → จัดการการทำให้ใช้งานได้ → แก้ไข (✏️) → เวอร์ชัน: ใหม่ → ทำให้ใช้งานได้** URL เดิมจะใช้ต่อได้
 
 ## หมายเหตุ
-- ชีต `Stock_record` ต้องมีหัวตาราง: Item code, Item discription, UOM, In, Out, Quantity, Unit Price, Amount(Baht) (Distributor, Lot, EXP., Inv# ใส่หรือไม่ก็ได้)
-- เพิ่มผู้ใช้ใหม่: พิมพ์แถวใหม่ในแท็บ User ได้เลย รหัสผ่านจะถูกเข้ารหัสให้อัตโนมัติเมื่อผู้ใช้ล็อกอินครั้งแรก
-- คอลัมน์ Quantity และ Amount ระบบคำนวณให้ (In − Out และ ราคา × คงเหลือ) แถวรวมท้ายชีตจะเป็นสูตร SUM
+- แท็บ `Stock_record` ต้องมีหัวตาราง: Item code, Item discription, UOM, In, Out, Quantity, Unit Price, Amount(Baht)
+- Quantity = In − Out และ Amount = Unit Price × Quantity ระบบคำนวณให้ แถวรวมท้ายชีตเป็นสูตร SUM
+- ถ้าสคริปต์ไม่ได้ผูกกับชีต ให้ใส่ ID ของชีตใน `CONFIG.SPREADSHEET_ID` บนสุดของ `Code.gs`

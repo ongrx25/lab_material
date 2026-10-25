@@ -1,14 +1,14 @@
 # Lab Stock — ระบบวัสดุคงคลัง Lab
 
-Dashboard และระบบเพิ่ม/แก้/ลบวัสดุ กลุ่มงานเทคนิคการแพทย์ โรงพยาบาลวาริชภูมิ ใช้ Google Sheet เป็นฐานข้อมูล
+Dashboard และระบบเพิ่ม/แก้/ลบวัสดุ กลุ่มงานเทคนิคการแพทย์ โรงพยาบาลวาริชภูมิ
+รันบน **Google Apps Script** (`apps-script/Code.gs` + `apps-script/Index.html`) ใช้ Google Sheet เป็นฐานข้อมูล
 
-- ตั้งค่าและ deploy: [docs/setup.md](docs/setup.md)
+- ติดตั้ง/deploy: [docs/setup.md](docs/setup.md)
 - ศัพท์และโมเดลข้อมูล: [CONTEXT.md](CONTEXT.md), การตัดสินใจ: [docs/adr](docs/adr)
 
-## พัฒนาในเครื่อง
+## ทดสอบในเครื่อง (ไม่ต้องใช้ Google)
 ```bash
 npm install
-SHEETS_FAKE=1 SESSION_SECRET=dev-secret-1234567890 npm run dev   # ใช้ข้อมูลตัวอย่าง ล็อกอิน jo / 1234
-npm test          # unit tests
-npm run test:e2e  # Playwright (PW_CHROMIUM=path ถ้าต้องใช้ chromium ที่ติดตั้งไว้)
+npm test            # ทดสอบ Code.gs ด้วยตัวจำลอง Apps Script
+npm run serve       # เปิด http://localhost:3200 ด้วยข้อมูลจำลอง (ล็อกอิน jo / 1234)
 ```
