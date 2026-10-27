@@ -41,7 +41,7 @@ _Avoid_: เบิก, ใช้ไป (ใช้คำว่า "จ่าย" 
 
 ## Flagged ambiguities
 
-- แหล่งข้อมูลปัจจุบัน: Google Sheet `1KkhbX34xQJ_BMxGPjCZNc3tpB8HfdcgKObrQRoa_WRM` มี 4 แท็บ
+- แหล่งข้อมูลปัจจุบัน: Google Sheet `1ZvZAdewxzR3ltph7Oe6-bizf8yjet6NWrd-DrM7kCb8` มี 4 แท็บ
   - `Stock_record`: ทะเบียนวัสดุ 111 รายการ (No., Item code `LAB-xx`, Item discription, Distributor, UOM, In, Out, Quantity, Unit Price, Amount(Baht), Lot, EXP., Inv#) + แถวรวมท้ายชีต
   - `IN`, `OUT`: สำเนารายการวัสดุเดียวกัน มีคอลัมน์ In หรือ Out — ยังไม่ใช่บันทึกรายการเคลื่อนไหว (ไม่มีวันที่/ผู้ทำรายการ)
   - `User`: id, username, password (ข้อความธรรมดา), name, position — 2 คน

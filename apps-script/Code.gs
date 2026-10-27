@@ -5,7 +5,7 @@
 
 var CONFIG = {
   // เว้นว่างไว้ถ้าสคริปต์ผูกกับชีต (Extensions → Apps Script); ใส่ ID ถ้าเป็นสคริปต์แยก
-  SPREADSHEET_ID: '1KkhbX34xQJ_BMxGPjCZNc3tpB8HfdcgKObrQRoa_WRM',
+  SPREADSHEET_ID: '1ZvZAdewxzR3ltph7Oe6-bizf8yjet6NWrd-DrM7kCb8',
   STOCK_TAB: 'Stock_record',
   USER_TAB: 'User',
   RECEIVE_LOG_TAB: 'Receive_log',
