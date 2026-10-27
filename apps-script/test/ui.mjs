@@ -22,6 +22,25 @@ for (const [name, vp] of [["desktop", { width: 1280, height: 900 }], ["mobile", 
   await p.waitForSelector('#noRows:not(.hidden)');
   await p.fill('#q', '');
   await p.screenshot({ path: `/tmp/claude-0/-home-claude-lab-material/6621d078-5a58-5a88-b54f-262677270f72/scratchpad/gas-items-${name}.png`, fullPage: true });
+  // receive
+  await p.click('[data-go=recv] >> visible=true');
+  await p.fill('#rq', 'dtx');
+  await p.click('[data-rpick="LAB-02"]');
+  await p.fill('#rForm [name=qty]', '20');
+  await p.click('#rSave');
+  await p.waitForSelector('#toast:has-text("รับเข้า DTX Strip")');
+  // issue
+  await p.click('[data-go=issue] >> visible=true');
+  await p.fill('#iq', 'hcg');
+  await p.click('[data-add="LAB-03"]'); await p.click('[data-add="LAB-03"]');
+  await p.fill('#iq', 'dtx');
+  await p.click('[data-add="LAB-02"]');
+  await p.click('#cart [data-inc="LAB-02"]');
+  await p.fill('#iq', '');
+  await p.screenshot({ path: `/tmp/claude-0/-home-claude-lab-material/6621d078-5a58-5a88-b54f-262677270f72/scratchpad/gas-issue-${name}.png`, fullPage: true });
+  await p.click('#issueBtn');
+  await p.waitForSelector('#toast:has-text("OUT-")');
+  await p.waitForSelector('#iResults .sec');
   console.log(name, "ok");
 }
 console.log("errors:", errors);

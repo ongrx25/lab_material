@@ -68,3 +68,45 @@ test("update by code after manual insert, delete, unknown code", () => {
   assert.ok(!sheets.Stock_record.data.some((r) => r[1] === "LAB-02"));
   assert.equal(ctx.apiDeleteItem(t, "LAB-404").ok, false);
 });
+
+test("receive adds to In, updates lot/expiry/price and logs it", () => {
+  const { ctx, sheets } = fresh();
+  const t = ctx.apiLogin("jo", "1234").token;
+  const r = ctx.apiReceive(t, { code: "LAB-02", qty: "50", lot: "L9", expiry: "01/06/2572", supplier: "NEW CO", unitPrice: "360", invoice: "INV-1" });
+  assert.equal(r.ok, true);
+  const row = sheets.Stock_record.data.find((x) => x[1] === "LAB-02");
+  assert.equal(row[5], "250");
+  assert.equal(row[7], "92");
+  assert.equal(row[10], "L9");
+  assert.equal(row[11], "01/06/2572");
+  assert.equal(row[3], "NEW CO");
+  const log = sheets.Receive_log.data;
+  assert.equal(log[0][0], "วันที่เวลา");
+  assert.equal(log[1][1], "LAB-02");
+  assert.equal(log[1][4], "50");
+  assert.equal(ctx.apiReceive(t, { code: "LAB-02", qty: "0" }).ok, false);
+});
+
+test("issue several items in one go, refuses more than on hand, logs a doc number", () => {
+  const { ctx, sheets } = fresh();
+  const t = ctx.apiLogin("jo", "1234").token;
+  const bad = ctx.apiIssue(t, { lines: [{ code: "LAB-04", qty: 5 }] });
+  assert.equal(bad.ok, false);
+  assert.match(bad.error, /DCIP/);
+  const r = ctx.apiIssue(t, { lines: [{ code: "LAB-02", qty: 2 }, { code: "LAB-03", qty: "10" }], note: "ward" });
+  assert.equal(r.ok, true);
+  assert.match(r.docNo, /^OUT-\d{4}-0001$/);
+  const d = sheets.Stock_record.data;
+  assert.equal(d.find((x) => x[1] === "LAB-02")[6], "160");
+  assert.equal(d.find((x) => x[1] === "LAB-03")[6], "440");
+  assert.equal(sheets.Issue_log.data.length, 3);
+  assert.equal(ctx.apiIssue(t, { lines: [{ code: "LAB-02", qty: 1 }] }).docNo.slice(-4), "0002");
+});
+
+test("load lists frequently issued items first", () => {
+  const { ctx } = fresh();
+  const t = ctx.apiLogin("jo", "1234").token;
+  ctx.apiIssue(t, { lines: [{ code: "LAB-03", qty: 1 }] });
+  ctx.apiIssue(t, { lines: [{ code: "LAB-03", qty: 1 }, { code: "LAB-02", qty: 1 }] });
+  assert.deepEqual(Array.from(ctx.apiLoad(t).frequent), ["LAB-03", "LAB-02"]);
+});

@@ -20,6 +20,9 @@ function makeSheet(rows) {
     getDataRange: () => ({ getDisplayValues: () => data.map((r) => { const o = r.slice(); while (o.length < width()) o.push(""); return o; }) }),
     getRange: range,
     insertRowBefore: (r) => data.splice(r - 1, 0, []),
+    appendRow: (row) => data.push(row.map(String)),
+    setFrozenRows() {},
+    getLastRow: () => data.length,
     deleteRow: (r) => data.splice(r - 1, 1),
   };
 }
@@ -27,7 +30,7 @@ function makeSheet(rows) {
 function load(tabs) {
   const sheets = Object.fromEntries(Object.entries(tabs).map(([k, v]) => [k, makeSheet(v)]));
   const cache = new Map();
-  const ss = { getSheetByName: (n) => sheets[n] || null };
+  const ss = { getSheetByName: (n) => sheets[n] || null, insertSheet: (n) => (sheets[n] = makeSheet([])) };
   const ctx = {
     console,
     SpreadsheetApp: { openById: () => ss, getActiveSpreadsheet: () => ss, flush() {} },
@@ -36,7 +39,10 @@ function load(tabs) {
     HtmlService: {},
     Utilities: {
       getUuid: () => crypto.randomUUID(),
-      formatDate: (d, tz, f) => { const p = new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(d); return f === "d" ? String(Number(p.slice(8))) : p; },
+      formatDate: (d, tz, f) => {
+        const parts = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(d).map((p) => [p.type, p.value]));
+        return f.replace("yyyy", parts.year).replace("MM", parts.month).replace("dd", parts.day).replace("HH", parts.hour).replace("mm", parts.minute).replace(/^d$/, String(Number(parts.day)));
+      },
       computeDigest: (_a, text) => [...crypto.createHash("sha256").update(text, "utf8").digest()].map((b) => (b > 127 ? b - 256 : b)),
       DigestAlgorithm: { SHA_256: 1 }, Charset: { UTF_8: 1 },
     },

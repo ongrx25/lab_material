@@ -8,6 +8,8 @@ var CONFIG = {
   SPREADSHEET_ID: '1KkhbX34xQJ_BMxGPjCZNc3tpB8HfdcgKObrQRoa_WRM',
   STOCK_TAB: 'Stock_record',
   USER_TAB: 'User',
+  RECEIVE_LOG_TAB: 'Receive_log',
+  ISSUE_LOG_TAB: 'Issue_log',
   SESSION_HOURS: 6,
   EXPIRY_WARNING_MONTHS: 6
 };
@@ -62,8 +64,19 @@ function apiLoad(token) {
     today: formatThaiDate_(today),
     todayLong: Utilities.formatDate(new Date(), 'Asia/Bangkok', 'd') + ' ' + THAI_MONTHS[today.getMonth()] + ' ' + (today.getFullYear() + 543),
     stats: dashboardStats_(items, today),
+    frequent: frequentCodes_(8),
     rows: sortByUrgency_(items, today).map(function (i) { return { item: i, status: itemStatus_(i, today) }; })
   };
+}
+
+function apiReceive(token, input) {
+  var user = requireUser_(token);
+  return withLock_(function () { return receive_(user, input || {}); });
+}
+
+function apiIssue(token, input) {
+  var user = requireUser_(token);
+  return withLock_(function () { return issue_(user, input || {}); });
 }
 
 function apiSaveItem(token, code, input) {
@@ -257,13 +270,17 @@ function updateItem_(code, input) {
   if (!row) throw new Error('ไม่พบรายการ ' + code + ' — อาจถูกลบหรือเปลี่ยนแปลงไปแล้ว กรุณาโหลดใหม่');
   var existing = s.items.filter(function (i) { return i.code === code; })[0];
   var item = computeItem_(Object.assign({}, input, { code: code, no: existing.no }));
-  // เก็บสูตร/ค่าเดิมในคอลัมน์ที่ระบบไม่ได้จัดการ
+  rewriteRow_(s, row, item);
+  writeTotal_();
+  return item;
+}
+
+/** Writes an item over its row, keeping formulas/values in columns the app does not manage. */
+function rewriteRow_(s, row, item) {
   var formulas = s.sheet.getRange(row, 1, 1, s.rows[0].length).getFormulas()[0];
   var raw = s.sheet.getRange(row, 1, 1, s.rows[0].length).getValues()[0];
   var keep = raw.map(function (v, k) { return formulas[k] || v; });
   writeRow_(s, row, item, keep);
-  writeTotal_();
-  return item;
 }
 
 function deleteItem_(code) {
@@ -272,6 +289,114 @@ function deleteItem_(code) {
   if (!row) throw new Error('ไม่พบรายการ ' + code + ' — อาจถูกลบหรือเปลี่ยนแปลงไปแล้ว กรุณาโหลดใหม่');
   s.sheet.deleteRow(row);
   writeTotal_();
+}
+
+/* ───────────── Receive / issue ───────────── */
+
+var RECEIVE_LOG_HEADER = ['วันที่เวลา', 'Item code', 'รายการ', 'หน่วย', 'จำนวนรับ', 'Lot', 'วันหมดอายุ', 'บริษัท', 'ราคาต่อหน่วย', 'เลขที่เอกสาร', 'ผู้รับ'];
+var ISSUE_LOG_HEADER = ['วันที่เวลา', 'เลขที่เบิก', 'Item code', 'รายการ', 'หน่วย', 'จำนวนเบิก', 'คงเหลือหลังเบิก', 'Lot', 'วันหมดอายุ', 'มูลค่า', 'ผู้เบิก', 'หมายเหตุ'];
+
+/** Log tabs are created on first use with a header row. */
+function logTab_(name, header) {
+  var ss = spreadsheet_();
+  var sh = ss.getSheetByName(name);
+  if (!sh) {
+    sh = ss.insertSheet(name);
+    sh.appendRow(header);
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+function nowText_() { return Utilities.formatDate(new Date(), 'Asia/Bangkok', 'dd/MM/') + (Number(Utilities.formatDate(new Date(), 'Asia/Bangkok', 'yyyy')) + 543) + ' ' + Utilities.formatDate(new Date(), 'Asia/Bangkok', 'HH:mm'); }
+
+function positiveQty_(v) {
+  var n = Number(String(v == null ? '' : v).trim());
+  return isFinite(n) && n > 0 ? n : null;
+}
+
+function receive_(user, input) {
+  var qty = positiveQty_(input.qty);
+  if (!qty) return { ok: false, error: 'กรุณาระบุจำนวนที่รับ (มากกว่า 0)', fieldErrors: { qty: 'จำนวนต้องมากกว่า 0' } };
+  var expiry = String(input.expiry || '').trim();
+  if (expiry && !parseThaiDate_(expiry)) return { ok: false, error: 'วันหมดอายุไม่ถูกต้อง', fieldErrors: { expiry: 'วันหมดอายุต้องเป็น วว/ดด/ปปปป (พ.ศ.)' } };
+  var price = String(input.unitPrice == null ? '' : input.unitPrice).trim();
+  if (price !== '' && !(Number(price) >= 0)) return { ok: false, error: 'ราคาไม่ถูกต้อง', fieldErrors: { unitPrice: 'ราคาต้องเป็นตัวเลขไม่ติดลบ' } };
+
+  var s = loadSheet_();
+  var row = s.rowOf[input.code];
+  if (!row) throw new Error('ไม่พบรายการ ' + input.code + ' กรุณาโหลดใหม่');
+  var item = s.items.filter(function (i) { return i.code === input.code; })[0];
+  item.received += qty;
+  if (String(input.lot || '').trim()) item.lot = String(input.lot).trim();
+  if (expiry) item.expiry = expiry;
+  if (String(input.supplier || '').trim()) item.supplier = String(input.supplier).trim();
+  if (price !== '') item.unitPrice = Number(price);
+  if (String(input.invoice || '').trim()) item.invoice = String(input.invoice).trim();
+  computeItem_(item);
+  rewriteRow_(s, row, item);
+  writeTotal_();
+  logTab_(CONFIG.RECEIVE_LOG_TAB, RECEIVE_LOG_HEADER).appendRow(
+    [nowText_(), item.code, item.name, item.unit, qty, item.lot, item.expiry, item.supplier, item.unitPrice, item.invoice, user.name || user.username]);
+  return { ok: true, item: item };
+}
+
+function issue_(user, input) {
+  var lines = (input.lines || []).map(function (l) { return { code: String(l.code), qty: positiveQty_(l.qty) }; });
+  if (!lines.length) return { ok: false, error: 'กรุณาเลือกรายการที่จะเบิก' };
+  var s = loadSheet_();
+  var byCode = {};
+  s.items.forEach(function (i) { byCode[i.code] = i; });
+  var problems = [];
+  var wanted = {};
+  lines.forEach(function (l) {
+    var item = byCode[l.code];
+    if (!item) { problems.push('ไม่พบรายการ ' + l.code); return; }
+    if (!l.qty) { problems.push(item.name + ': จำนวนต้องมากกว่า 0'); return; }
+    wanted[l.code] = (wanted[l.code] || 0) + l.qty;
+  });
+  Object.keys(wanted).forEach(function (code) {
+    var item = byCode[code];
+    if (wanted[code] > item.onHand) problems.push(item.name + ': คงเหลือ ' + item.onHand + ' ' + item.unit + ' ไม่พอเบิก ' + wanted[code]);
+  });
+  if (problems.length) return { ok: false, error: problems.join('\n') };
+
+  var log = logTab_(CONFIG.ISSUE_LOG_TAB, ISSUE_LOG_HEADER);
+  var docNo = nextDocNo_(log);
+  var when = nowText_();
+  var issued = [];
+  Object.keys(wanted).forEach(function (code) {
+    var item = byCode[code];
+    item.issued += wanted[code];
+    computeItem_(item);
+    rewriteRow_(s, s.rowOf[code], item);
+    log.appendRow([when, docNo, item.code, item.name, item.unit, wanted[code], item.onHand, item.lot, item.expiry,
+      round2_(wanted[code] * item.unitPrice), user.name || user.username, String(input.note || '').trim()]);
+    issued.push({ code: code, name: item.name, qty: wanted[code], onHand: item.onHand });
+  });
+  writeTotal_();
+  return { ok: true, docNo: docNo, lines: issued };
+}
+
+/** OUT-<BE year>-NNNN, running per year. */
+function nextDocNo_(log) {
+  var year = Number(Utilities.formatDate(new Date(), 'Asia/Bangkok', 'yyyy')) + 543;
+  var prefix = 'OUT-' + year + '-';
+  var max = 0;
+  log.getDataRange().getDisplayValues().forEach(function (r) {
+    var v = String(r[1] || '');
+    if (v.indexOf(prefix) === 0) max = Math.max(max, Number(v.slice(prefix.length)) || 0);
+  });
+  return prefix + ('000' + (max + 1)).slice(-4);
+}
+
+/** Item codes issued most often (by number of issue lines). */
+function frequentCodes_(limit) {
+  var sh = spreadsheet_().getSheetByName(CONFIG.ISSUE_LOG_TAB);
+  if (!sh) return [];
+  var counts = {};
+  sh.getDataRange().getDisplayValues().slice(1).forEach(function (r) { if (r[2]) counts[r[2]] = (counts[r[2]] || 0) + 1; });
+  return Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; }).slice(0, limit);
 }
 
 /* ───────────── Validation ───────────── */
